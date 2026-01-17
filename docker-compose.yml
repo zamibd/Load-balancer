@@ -1,6 +1,6 @@
 services:
   haproxy:
-    image: haproxy:3.3.1-alpine
+    build: .
     container_name: haproxy
     restart: unless-stopped
     networks:
@@ -11,6 +11,10 @@ services:
         condition: service_healthy
       routedns:
         condition: service_healthy
+
+    environment:
+      - VALKEY_HOST=valkey
+      - VALKEY_PASSWORD=${VALKEY_PASSWORD:-}
 
     volumes:
       - type: bind
@@ -110,7 +114,7 @@ services:
       - "5301"
 
     healthcheck:
-      test: ["CMD-SHELL", "nc -z -w 3 127.0.0.1 5301 || exit 1"]
+      test: ["CMD-SHELL", "nc -z -w 3 127.0.0.1 5301"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -134,17 +138,22 @@ services:
     tmpfs:
       - /tmp:size=10M,mode=1777
 
+    environment:
+      - VALKEY_PASSWORD=${VALKEY_PASSWORD:-}
+
     command: >
-      valkey-server
+      sh -c 'valkey-server
       --appendonly yes
       --maxmemory 512mb
       --maxmemory-policy allkeys-lru
+      ${VALKEY_PASSWORD:+--requirepass "$VALKEY_PASSWORD"}'
 
     volumes:
       - valkey_data:/data
 
     networks:
       - internal_net
+      - monitoring_net
 
     ports:
       - "127.0.0.1:6379:6379"
@@ -156,11 +165,36 @@ services:
         max-file: "5"
 
     healthcheck:
-      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
+      test: ["CMD-SHELL", "valkey-cli ${VALKEY_PASSWORD:+-a $VALKEY_PASSWORD} ping 2>/dev/null | grep -q PONG"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: redis-exporter
+    restart: unless-stopped
+    environment:
+      - REDIS_ADDR=valkey:6379
+      - REDIS_PASSWORD=${VALKEY_PASSWORD:-}
+    networks:
+      - internal_net
+      - monitoring_net
+    expose:
+      - "9121"
+    depends_on:
+      valkey:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.1'
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
   prometheus:
     image: prom/prometheus:v3.9.1
@@ -205,6 +239,7 @@ services:
 
     networks:
       - monitoring_net
+      - internal_net
 
     ports:
       - "127.0.0.1:9090:9090"
@@ -248,8 +283,8 @@ services:
       - ALL
 
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=11221099
+      - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-changeme}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_HTTP_PORT=3000
       - GF_LOG_MODE=console
@@ -270,7 +305,7 @@ services:
       - monitoring_net
 
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
 
     logging:
       driver: json-file

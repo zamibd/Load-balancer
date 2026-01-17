@@ -76,7 +76,7 @@ run_health_checks() {
     fi
     
     echo -n "Valkey health check... "
-    if docker exec valkey valkey-cli -a "${VALKEY_PASSWORD:-changeme_in_production}" ping 2>/dev/null | grep -q PONG; then
+    if docker exec valkey valkey-cli ${VALKEY_PASSWORD:+-a "$VALKEY_PASSWORD"} ping 2>/dev/null | grep -q PONG; then
         echo -e "${GREEN}✅ OK${NC}"
     else
         echo -e "${RED}❌ FAILED${NC}"

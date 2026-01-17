@@ -41,6 +41,16 @@ groups:
           summary: "HAProxy slow backend response"
           description: "Backend {{ $labels.proxy }} average response time > 2s"
 
+      # DoT Frontend down
+      - alert: HAProxyDoTDown
+        expr: haproxy_frontend_status{proxy="ft_dot"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HAProxy DoT frontend is down"
+          description: "DNS over TLS frontend has been down for more than 1 minute"
+
   - name: infrastructure_alerts
     rules:
       # Container down
@@ -53,21 +63,11 @@ groups:
           summary: "Container {{ $labels.job }} is down"
           description: "Container {{ $labels.job }} has been down for more than 1 minute"
 
-      # High memory usage (if node_exporter is added)
-      - alert: HighMemoryUsage
-        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High memory usage"
-          description: "Memory usage is above 90%"
-
   - name: valkey_alerts
     rules:
-      # Valkey down
+      # Valkey down (using redis_exporter metrics)
       - alert: ValkeyDown
-        expr: up{job="valkey"} == 0
+        expr: redis_up == 0
         for: 1m
         labels:
           severity: critical
@@ -84,3 +84,35 @@ groups:
         annotations:
           summary: "Valkey high memory usage"
           description: "Valkey memory usage is above 90%"
+
+      # Too many connected clients
+      - alert: ValkeyTooManyConnections
+        expr: redis_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Valkey has too many connections"
+          description: "Valkey has more than 100 connected clients"
+
+      # High command latency
+      - alert: ValkeyHighLatency
+        expr: rate(redis_commands_duration_seconds_total[5m]) / rate(redis_commands_processed_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Valkey high command latency"
+          description: "Valkey average command latency is above 10ms"
+
+  - name: routedns_alerts
+    rules:
+      # RouteDNS backend unreachable
+      - alert: RouteDNSBackendDown
+        expr: haproxy_backend_active_servers{proxy="bk_dot_upstream"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RouteDNS backend is down"
+          description: "All RouteDNS servers are unreachable"

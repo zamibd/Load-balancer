@@ -6,14 +6,23 @@
 .env
 .env.*
 !.env.example
+.env.local
+.env.production
+*.env
 
 # SSL/TLS certificates and keys
-
 *.key
 *.crt
 *.p12
 *.pfx
-
+*.pem
+haproxy/certs/*.pem
+haproxy/certs/fullchain.pem
+haproxy/certs/privkey.pem
+haproxy/certs/dot.pem
+haproxy/certs/*.key
+haproxy/certs/*.crt
+!haproxy/certs/README.md
 
 # Backups
 backups/
@@ -42,3 +51,4 @@ Thumbs.db
 *.tmp
 *.temp
 tmp/
+*.bak

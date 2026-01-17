@@ -131,7 +131,7 @@ routes = [
 routes = [{ resolver = "cloudflare-dot" }]
 
 ########################
-# LISTENERS – ALL LOCAL
+# LISTENERS – LOCALHOST ONLY
 ########################
 #[listeners.dns-udp]
 #address  = "0.0.0.0:53"
@@ -143,6 +143,8 @@ routes = [{ resolver = "cloudflare-dot" }]
 #protocol = "tcp"
 #resolver = "security"
 
+# Note: Using 0.0.0.0 is required for Docker container networking
+# Security is enforced via allowed-net restricting to private networks only
 [listeners.local-udp]
 address = "0.0.0.0:5301"
 protocol = "udp"

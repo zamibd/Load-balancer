@@ -49,56 +49,6 @@ local CONFIG = {
 local valkey_pool = {}
 local valkey_authenticated = false
 
-local function get_valkey_connection()
-    -- Try to reuse existing connection
-    if valkey_pool.conn and valkey_authenticated then
-        return valkey_pool.conn
-    end
-    
-    -- Create new TCP connection to Valkey
-    local conn = core.tcp()
-    if not conn then
-        core.log(core.err, "[tenant-valkey] Failed to create TCP socket")
-        return nil
-    end
-    
-    -- Set timeout (in milliseconds for core.tcp)
-    conn:settimeout(CONFIG.valkey_timeout)
-    
-    -- Connect to Valkey
-    local ok = conn:connect(CONFIG.valkey_host, CONFIG.valkey_port)
-    if not ok then
-        core.log(core.warning, "[tenant-valkey] Connection failed to " .. CONFIG.valkey_host .. ":" .. CONFIG.valkey_port)
-        return nil
-    end
-    
-    valkey_pool.conn = conn
-    valkey_authenticated = false
-    
-    -- Authenticate if password is set
-    if CONFIG.valkey_password and CONFIG.valkey_password ~= "" then
-        local auth_result, auth_err = valkey_auth(conn)
-        if not auth_result then
-            core.log(core.err, "[tenant-valkey] Authentication failed: " .. tostring(auth_err))
-            close_valkey_connection()
-            return nil
-        end
-        valkey_authenticated = true
-    else
-        valkey_authenticated = true
-    end
-    
-    return conn
-end
-
-local function close_valkey_connection()
-    if valkey_pool.conn then
-        pcall(function() valkey_pool.conn:close() end)
-        valkey_pool.conn = nil
-        valkey_authenticated = false
-    end
-end
-
 -- Send raw RESP command and get response
 local function valkey_send_raw(conn, command)
     local ok, err = conn:send(command)
@@ -202,7 +152,7 @@ local function parse_resp(response)
 end
 
 -- Authenticate with Valkey
-function valkey_auth(conn)
+local function valkey_auth(conn)
     local password = CONFIG.valkey_password
     local cmd = "*2\r\n$4\r\nAUTH\r\n$" .. #password .. "\r\n" .. password .. "\r\n"
     
@@ -217,6 +167,56 @@ function valkey_auth(conn)
     end
     
     return result == "OK", nil
+end
+
+local function close_valkey_connection()
+    if valkey_pool.conn then
+        pcall(function() valkey_pool.conn:close() end)
+        valkey_pool.conn = nil
+        valkey_authenticated = false
+    end
+end
+
+local function get_valkey_connection()
+    -- Try to reuse existing connection
+    if valkey_pool.conn and valkey_authenticated then
+        return valkey_pool.conn
+    end
+    
+    -- Create new TCP connection to Valkey
+    local conn = core.tcp()
+    if not conn then
+        core.log(core.err, "[tenant-valkey] Failed to create TCP socket")
+        return nil
+    end
+    
+    -- Set timeout (in milliseconds for core.tcp)
+    conn:settimeout(CONFIG.valkey_timeout)
+    
+    -- Connect to Valkey
+    local ok = conn:connect(CONFIG.valkey_host, CONFIG.valkey_port)
+    if not ok then
+        core.log(core.warning, "[tenant-valkey] Connection failed to " .. CONFIG.valkey_host .. ":" .. CONFIG.valkey_port)
+        return nil
+    end
+    
+    valkey_pool.conn = conn
+    valkey_authenticated = false
+    
+    -- Authenticate if password is set
+    if CONFIG.valkey_password and CONFIG.valkey_password ~= "" then
+        local auth_result, auth_err = valkey_auth(conn)
+        if not auth_result then
+            core.log(core.err, "[tenant-valkey] Authentication failed: " .. tostring(auth_err))
+            close_valkey_connection()
+            return nil
+        end
+        valkey_authenticated = true
+    else
+        valkey_authenticated = true
+    end
+    
+    return conn
 end
 
 local function valkey_command(...)
