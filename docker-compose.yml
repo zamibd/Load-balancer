@@ -130,7 +130,7 @@ services:
       - SETUID
       - SETGID
 
-    read_only: true
+    read_only: false
     tmpfs:
       - /tmp:size=10M,mode=1777
 
