@@ -26,17 +26,17 @@ show_usage() {
 
 show_status() {
     echo -e "${BLUE}📊 Service Status:${NC}"
-    docker-compose ps
+    docker compose ps
 }
 
 show_logs() {
     service=$1
     if [ -z "$service" ]; then
         echo -e "${BLUE}📋 All Service Logs:${NC}"
-        docker-compose logs -f
+        docker compose logs -f
     else
         echo -e "${BLUE}📋 Logs for $service:${NC}"
-        docker-compose logs -f "$service"
+        docker compose logs -f "$service"
     fi
 }
 
@@ -44,10 +44,10 @@ restart_service() {
     service=$1
     if [ -z "$service" ]; then
         echo -e "${YELLOW}⏳ Restarting all services...${NC}"
-        docker-compose restart
+        docker compose restart
     else
         echo -e "${YELLOW}⏳ Restarting $service...${NC}"
-        docker-compose restart "$service"
+        docker compose restart "$service"
     fi
     echo -e "${GREEN}✅ Done!${NC}"
 }
@@ -90,7 +90,7 @@ shell_service() {
         exit 1
     fi
     echo -e "${BLUE}🔧 Opening shell in $service container...${NC}"
-    docker-compose exec "$service" /bin/sh
+    docker compose exec "$service" /bin/sh
 }
 
 # Main script logic

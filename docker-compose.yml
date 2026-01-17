@@ -118,48 +118,49 @@ services:
       start_period: 10s
 
   valkey:
-    image: valkey/valkey:9.0.1
-    container_name: valkey
-    restart: unless-stopped
+  image: valkey/valkey:9.0.1-alpine
+  container_name: valkey
+  restart: unless-stopped
 
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  cap_add:
+    - SETUID
+    - SETGID
 
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+  read_only: true
+  tmpfs:
+    - /tmp:size=10M,mode=1777
 
-    read_only: true
-    tmpfs:
-      - /tmp:size=10M,mode=1777
+  command: >
+    valkey-server
+    --appendonly yes
+    --maxmemory 512mb
+    --maxmemory-policy allkeys-lru
 
-    command: >
-      valkey-server
-      --appendonly yes
-      --maxmemory 512mb
-      --maxmemory-policy allkeys-lru
-      --requirepass ${VALKEY_PASSWORD}
+  volumes:
+    - valkey_data:/data
 
-    volumes:
-      - valkey_data:/data
+  networks:
+    - internal_net
 
-    networks:
-      - internal_net
+  ports:
+    - "127.0.0.1:6379:6379"
 
-    ports:
-      - "127.0.0.1:6379:6379"
+  logging:
+    driver: json-file
+    options:
+      max-size: "25m"
+      max-file: "5"
 
-    logging:
-      driver: json-file
-      options:
-        max-size: "25m"
-        max-file: "5"
-
-    healthcheck:
-      test: ["CMD-SHELL", "VALKEYCLI_AUTH=$$VALKEY_PASSWORD valkey-cli ping | grep -q PONG"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+  healthcheck:
+    test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+    start_period: 10s
 
   # =============================================================================
   # MONITORING STACK
@@ -251,8 +252,8 @@ services:
       - ALL
 
     environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set}
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=11221099
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_HTTP_PORT=3000
       - GF_LOG_MODE=console
@@ -273,7 +274,7 @@ services:
       - monitoring_net
 
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:3000"
 
     logging:
       driver: json-file
