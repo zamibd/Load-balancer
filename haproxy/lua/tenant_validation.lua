@@ -36,7 +36,7 @@ local CONFIG = {
     max_devices_per_tenant = 1,    -- Maximum allowed devices per tenant
     block_duration = 1800,         -- 30 minutes block for violators
     -- Valkey configuration - using Docker service name
-    valkey_host = os.getenv("VALKEY_HOST") or "valkey",
+    valkey_host = os.getenv("VALKEY_HOST"),
     valkey_port = 6379,
     valkey_timeout = 1000,  -- milliseconds
     valkey_db = 0,
