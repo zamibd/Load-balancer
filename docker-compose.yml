@@ -80,7 +80,7 @@ services:
       - "127.0.0.1:8404:8404"  # Stats - localhost only
 
   routedns:
-    image: folbricht/routedns:v0.1.129
+    image: folbricht/routedns:latest
     container_name: routedns
     restart: unless-stopped
     networks:
@@ -109,8 +109,8 @@ services:
         source: ./routedns/config.toml
         target: /etc/routedns/config.toml
         read_only: true
-
-    command: ["--config", "/etc/routedns/config.toml"]
+        
+    command: ["/etc/routedns/config.toml"]
 
     logging:
       driver: json-file
@@ -156,7 +156,7 @@ services:
       --appendonly yes
       --maxmemory 512mb
       --maxmemory-policy allkeys-lru
-      --requirepass ${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set in .env}
+      --requirepass ${VALKEY_PASSWORD}
 
     volumes:
       - valkey_data:/data
@@ -248,7 +248,7 @@ services:
       start_period: 30s
 
   grafana:
-    image: grafana/grafana:12.4.0
+    image: grafana/grafana:latest
     container_name: grafana
     restart: unless-stopped
     depends_on:
