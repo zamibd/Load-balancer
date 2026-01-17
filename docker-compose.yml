@@ -1,6 +1,6 @@
 services:
   haproxy:
-    image: haproxy:3.3.1
+    image: haproxy:3.3.1-alpine
     container_name: haproxy
     restart: unless-stopped
     networks:
@@ -109,7 +109,7 @@ services:
         source: ./routedns/config.toml
         target: /etc/routedns/config.toml
         read_only: true
-        
+
     command: ["/etc/routedns/config.toml"]
 
     logging:
