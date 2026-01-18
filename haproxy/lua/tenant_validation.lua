@@ -207,57 +207,59 @@ local function get_valkey_connection()
         return valkey_pool.conn
     end
 
-    if not CONFIG.valkey_host or CONFIG.valkey_host == "" then
-        core.log(core.err, "[tenant-valkey] VALKEY_HOST is not set")
+    -- Validate host
+    local host = CONFIG.valkey_host
+    if not host or host == "" then
+        core.log(core.err, "[tenant-valkey] VALKEY_HOST not configured")
         return nil
     end
 
-    if not CONFIG.valkey_port or CONFIG.valkey_port <= 0 or CONFIG.valkey_port > 65535 then
-        core.log(core.err, "[tenant-valkey] VALKEY_PORT is invalid: " .. tostring(CONFIG.valkey_port))
+    -- Validate port - MUST be a number
+    local port = CONFIG.valkey_port
+    if type(port) ~= "number" then
+        port = tonumber(port)
+    end
+    if not port or port <= 0 or port > 65535 then
+        core.log(core.err, "[tenant-valkey] VALKEY_PORT invalid: " .. tostring(CONFIG.valkey_port) .. " (type: " .. type(CONFIG.valkey_port) .. ")")
         return nil
     end
     
-    -- Create new TCP connection to Valkey using core.tcp()
+    -- Create socket
     local conn = core.tcp()
     if not conn then
         core.log(core.err, "[tenant-valkey] Failed to create TCP socket")
         return nil
     end
     
-    -- Set timeout (in milliseconds for HAProxy, then convert)
+    -- Set timeout
     conn:settimeout(CONFIG.valkey_timeout / 1000)
     
-    -- Connect to Valkey with explicit integer port
-    local port = math.floor(CONFIG.valkey_port)
-    local host = tostring(CONFIG.valkey_host)
+    -- Log attempt before connecting
+    core.log(core.info, "[tenant-valkey] Connecting to " .. host .. ":" .. tostring(port))
     
-    core.log(core.info, "[tenant-valkey] Attempting connection to " .. host .. ":" .. port)
-    
+    -- Connect - port MUST be a number here
     local ok, err = conn:connect(host, port)
     if not ok then
-        core.log(core.err, "[tenant-valkey] Connection failed to " .. host .. ":" .. port .. " - " .. tostring(err))
+        core.log(core.err, "[tenant-valkey] Failed to connect: " .. tostring(err))
         pcall(function() conn:close() end)
         return nil
     end
     
-    core.log(core.info, "[tenant-valkey] Connected successfully to " .. host .. ":" .. port)
-    
+    core.log(core.info, "[tenant-valkey] Connected successfully")
     valkey_pool.conn = conn
     valkey_authenticated = false
     
-    -- Authenticate if password is set
+    -- Authenticate if needed
     if CONFIG.valkey_password and CONFIG.valkey_password ~= "" then
-        local auth_result, auth_err = valkey_auth(conn)
-        if not auth_result then
-            core.log(core.err, "[tenant-valkey] Authentication failed: " .. tostring(auth_err))
+        local auth_ok, auth_err = valkey_auth(conn)
+        if not auth_ok then
+            core.log(core.err, "[tenant-valkey] Auth failed: " .. tostring(auth_err))
             close_valkey_connection()
             return nil
         end
         valkey_authenticated = true
-        core.log(core.info, "[tenant-valkey] Authenticated successfully")
     else
         valkey_authenticated = true
-        core.log(core.info, "[tenant-valkey] No password, skipping authentication")
     end
     
     return conn
