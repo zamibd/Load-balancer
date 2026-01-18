@@ -212,30 +212,35 @@ local function get_valkey_connection()
         return nil
     end
 
-    local port = math.floor(tonumber(CONFIG.valkey_port) or 0)
-    if port <= 0 then
+    if not CONFIG.valkey_port or CONFIG.valkey_port <= 0 or CONFIG.valkey_port > 65535 then
         core.log(core.err, "[tenant-valkey] VALKEY_PORT is invalid: " .. tostring(CONFIG.valkey_port))
         return nil
     end
     
     -- Create new TCP connection to Valkey using core.tcp()
-    -- core.tcp() is the correct HAProxy Lua API for TCP connections
     local conn = core.tcp()
     if not conn then
         core.log(core.err, "[tenant-valkey] Failed to create TCP socket")
         return nil
     end
     
-    -- Set timeout (in seconds for HAProxy tcp socket)
+    -- Set timeout (in milliseconds for HAProxy, then convert)
     conn:settimeout(CONFIG.valkey_timeout / 1000)
     
-    -- Connect to Valkey
-    -- Use IP if possible, or ensure hostname is clean
-    local ok, err = conn:connect(CONFIG.valkey_host, port)
+    -- Connect to Valkey with explicit integer port
+    local port = math.floor(CONFIG.valkey_port)
+    local host = tostring(CONFIG.valkey_host)
+    
+    core.log(core.info, "[tenant-valkey] Attempting connection to " .. host .. ":" .. port)
+    
+    local ok, err = conn:connect(host, port)
     if not ok then
-        core.log(core.warning, "[tenant-valkey] Connection failed to " .. CONFIG.valkey_host .. ":" .. port .. " - " .. tostring(err))
+        core.log(core.err, "[tenant-valkey] Connection failed to " .. host .. ":" .. port .. " - " .. tostring(err))
+        pcall(function() conn:close() end)
         return nil
     end
+    
+    core.log(core.info, "[tenant-valkey] Connected successfully to " .. host .. ":" .. port)
     
     valkey_pool.conn = conn
     valkey_authenticated = false
@@ -249,8 +254,10 @@ local function get_valkey_connection()
             return nil
         end
         valkey_authenticated = true
+        core.log(core.info, "[tenant-valkey] Authenticated successfully")
     else
         valkey_authenticated = true
+        core.log(core.info, "[tenant-valkey] No password, skipping authentication")
     end
     
     return conn
